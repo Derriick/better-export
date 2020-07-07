@@ -1,41 +1,46 @@
-use std::{
-	error::Error,
-	fs,
-	path::Path,
-};
 use chrono::prelude::*;
+use std::{io, path::Path, path::PathBuf};
 
 use better_export::*;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> io::Result<()> {
 	let matches = create_app().get_matches();
-	let conf = get_conf(&matches);
+	let conf = get_conf(&matches)?;
 	let conf = conf.general_section();
 
-	//println!("input file:   {}", matches.value_of("file").unwrap_or("no file"));
-	//println!("path:         {}", conf.get("path").unwrap_or("None"));
-	//println!("date:         {}", conf.get("date").unwrap_or("None"));
-	//println!("path-default: {}", conf.get("path-default").unwrap_or("None"));
-	//println!("reset:        {}", matches.is_present("reset"));
+	println!("file:    {}", matches.value_of("file").unwrap_or("no file"));
+	println!("default: {}", conf.get("path-default").unwrap_or("None"));
+	println!("path:    {}", conf.get("path").unwrap_or("None"));
+	println!("date:    {}", conf.get("date").unwrap_or("None"));
+	println!("reset:   {}", matches.is_present("reset"));
 
-	if let Some(input_file) = matches.value_of("file") {
-		let path = String::from(conf.get("path").unwrap());
-		let path = if path.contains("{DATE}") {
-			let date_format = conf.get("date").unwrap();
-			path.replace("{DATE}", &Local::now().format(date_format).to_string())
-		} else {
-			path
-		};
-		let path = match Path::extension(Path::new(&path)) {
-			Some(_) => path,
-			None => match Path::extension(Path::new(input_file)) {
-				Some(ext) => format!("{}.{}", path, ext.to_str().unwrap()),
-				None => path,
+	match matches.value_of("file") {
+		Some(src) => {
+			let src = Path::new(src);
+
+			let dst = conf.get("path").expect("'path' is not defined");
+			let mut dst = if dst.contains("{DATE}") {
+				let date_format =
+					conf.get("date").expect("'date' is not defined");
+				let date = &Local::now().format(date_format).to_string();
+				PathBuf::from(dst.replace("{DATE}", &date))
+			} else {
+				PathBuf::from(dst)
+			};
+
+			if dst.extension().is_none() {
+				if let Some(ext) = src.extension() {
+					dst.set_extension(ext);
+				}
 			}
-		};
 
-		let _ = fs::rename(input_file, path)?;
+			println!(
+				"Move '{}' to '{}'",
+				&src.to_str().unwrap_or("???"),
+				&dst.to_str().unwrap_or("???")
+			);
+			move_file(&src, &dst)
+		}
+		None => Ok(()),
 	}
-
-	Ok(())
 }

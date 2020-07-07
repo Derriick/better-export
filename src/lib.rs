@@ -1,10 +1,18 @@
 use clap::{App, Arg, ArgMatches};
-use ini::{Ini, ini::EscapePolicy, ini::Properties};
+use ini::{ini::EscapePolicy, ini::Properties, Ini};
+use std::{
+	env, fs, io,
+	path::{Path, PathBuf},
+};
 
-macro_rules! default_conf { () => ( "config.ini" )}
+macro_rules! default_conf {
+	() => {
+		"config.ini"
+	};
+}
 
 const DEFAULT_CONF: &str = default_conf!();
-const DEFAULT_PATH: &str = "D:\\file_{DATE}";
+const DEFAULT_PATH: &str = "file_{DATE}";
 const DEFAULT_DATE: &str = "%Y%m%d_%H%M%S";
 
 pub fn create_app() -> App<'static, 'static> {
@@ -18,13 +26,13 @@ pub fn create_app() -> App<'static, 'static> {
 		.arg(Arg::with_name("config")
 			  .short("c")
 			  .long("config")
-			  .value_name("PATH")
-			  .help(concat!("Sets the path of the configuration file to use.\nDefault is ", default_conf!()))
+			  .value_name("FILE")
+			  .help(concat!("Sets the path of the configuration file to use. Default is '", default_conf!(), "'."))
 			  .takes_value(true))
 		.arg(Arg::with_name("path")
 			  .short("p")
 			  .long("path")
-			  .value_name("PATH")
+			  .value_name("FILE")
 			  .help("Sets the export path. {DATE} will be replaced by the current local date/time with the choosen format.\nIf no extension is specified, the extension of the input file will be used.")
 			  .takes_value(true))
 		.arg(Arg::with_name("date")
@@ -35,24 +43,60 @@ pub fn create_app() -> App<'static, 'static> {
 		     .takes_value(true))
 		.arg(Arg::with_name("path-default")
 			  .long("path-default")
-			  .value_name("PATH")
+			  .value_name("FILE")
 			  .help("Sets the default export path.")
 			  .takes_value(true))
 		.arg(Arg::with_name("reset")
 		     .long("reset")
-		     .help("Reset the export path to its default"))
+		     .help("Reset the export path to the default export path."))
 }
 
-pub fn get_conf(matches: &ArgMatches) -> Ini {
-	let path = matches.value_of("config").unwrap_or(DEFAULT_CONF);
-	let mut conf = Ini::load_from_file_noescape(path).unwrap_or(Ini::new());
+pub fn move_file(from: &Path, to: &Path) -> io::Result<()> {
+	if from.is_file() {
+		match fs::rename(from, &to) {
+			Ok(_) => Ok(()),
+			Err(_) => match fs::copy(from, &to) {
+				Ok(_) => fs::remove_file(from),
+				Err(err) => Err(err),
+			},
+		}
+	} else {
+		Err(io::Error::from(io::ErrorKind::InvalidInput))
+	}
+}
+
+pub fn get_conf(matches: &ArgMatches) -> io::Result<Ini> {
+	let path = match matches.value_of("config") {
+		Some(path) => PathBuf::from(path),
+		None => {
+			let path = Path::new(DEFAULT_CONF);
+			if path.is_relative() {
+				let dir = env::current_exe()?;
+				let dir = dir.parent().expect(&format!(
+					"Current EXE file '{}' has no parent",
+					dir.to_str().unwrap_or("???")
+				));
+				dir.join(path)
+			} else {
+				path.to_path_buf()
+			}
+		}
+	};
+
+	println!("config:  {}", path.to_str().unwrap());
+
+	let mut conf = Ini::load_from_file_noescape(&path).unwrap_or(Ini::new());
 	update_ini(&mut conf, &matches);
-	
-	if let Err(err) = conf.write_to_file_policy(path, EscapePolicy::Nothing) {
-		eprintln!("Failed to write configuration to file {}\n{}", path, err);
+
+	if let Err(err) = conf.write_to_file_policy(&path, EscapePolicy::Nothing) {
+		eprintln!(
+			"Failed to write configuration to file {}\n{}",
+			path.to_str().unwrap_or("???"),
+			err
+		);
 	}
 
-	conf
+	Ok(conf)
 }
 
 fn update_ini(ini: &mut Ini, matches: &ArgMatches) {
