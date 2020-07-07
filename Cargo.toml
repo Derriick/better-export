@@ -1,0 +1,13 @@
+[package]
+name = "better-export"
+version = "0.1.0"
+authors = ["Pierre KOEBELIN <pierre.koebelin@skan.ch>"]
+description = "Better export for PDF printer: move the input file to a configured location."
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = "0.4"
+clap = "2.33"
+rust-ini = "0.15"
