@@ -70,7 +70,10 @@ pub fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(
 			}
 		}
 	} else {
-		Err(io::Error::from(io::ErrorKind::InvalidInput))
+		Err(io::Error::new(
+			io::ErrorKind::Other,
+			format!("'{}' is not a file", from.to_str().unwrap_or("???")),
+		))
 	}
 }
 
@@ -81,10 +84,18 @@ pub fn get_conf(matches: &ArgMatches) -> io::Result<Ini> {
 			let path = Path::new(DEFAULT_CONF);
 			if path.is_relative() {
 				let path_exe = env::current_exe()?;
-				let dir = path_exe.parent().expect(&format!(
-					"Current EXE file '{}' has no parent",
-					path_exe.to_str().unwrap_or("???")
-				));
+				let dir = match path_exe.parent() {
+					Some(parent) => parent,
+					None => {
+						return Err(io::Error::new(
+							io::ErrorKind::Other,
+							format!(
+								"Current EXE file '{}' has no parent",
+								path_exe.to_str().unwrap_or("???")
+							),
+						))
+					}
+				};
 				dir.join(path)
 			} else {
 				path.to_path_buf()
