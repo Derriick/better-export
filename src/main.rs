@@ -51,7 +51,7 @@ fn main() {
 		}
 
 		info!(
-			"Moving '{}' to '{}'...",
+			"Moving '{}' to '{}'",
 			&src.to_str().unwrap_or("???"),
 			&dst.to_str().unwrap_or("???")
 		);

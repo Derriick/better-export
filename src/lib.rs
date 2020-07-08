@@ -48,6 +48,7 @@ pub fn create_app() -> App<'static, 'static> {
 			  .help("Set the default export path.")
 			  .takes_value(true))
 		.arg(Arg::with_name("reset")
+		     .short("r")
 		     .long("reset")
 		     .help("Reset the export path to the default export path."))
 		.arg(Arg::with_name("verbose")
