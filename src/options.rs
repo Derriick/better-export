@@ -5,13 +5,13 @@ use std::{
 };
 
 mod key {
-	pub const PATH_SRC: &str     = "file";
-	pub const PATH_DST: &str     = "path";
+	pub const PATH_SRC: &str = "file";
+	pub const PATH_DST: &str = "path";
 	pub const PATH_DEFAULT: &str = "default-path";
-	pub const FORMAT_DATE: &str  = "date";
-	pub const RESET: &str        = "reset";
-	pub const PATH_CONF: &str    = "config";
-	pub const VERBOSE: &str      = "verbose";
+	pub const FORMAT_DATE: &str = "date";
+	pub const RESET: &str = "reset";
+	pub const PATH_CONF: &str = "config";
+	pub const VERBOSE: &str = "verbose";
 }
 
 macro_rules! default_path_conf {
@@ -98,10 +98,15 @@ impl Options<'_> {
 					let path_exe = env::current_exe()?;
 					let dir = match path_exe.parent() {
 						Some(parent) => parent,
-						None => return Err(io::Error::new(io::ErrorKind::Other, format!(
+						None => {
+							return Err(io::Error::new(
+								io::ErrorKind::Other,
+								format!(
 									"current exe file '{}' has no parent",
 									path_exe.to_str().unwrap_or("???")
-								))),
+								),
+							))
+						}
 					};
 					Ok(dir.join(path))
 				} else {
