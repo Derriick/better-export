@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use log::{error, info, LevelFilter};
+use log::{info, LevelFilter};
 use std::{fs, path::Path};
 
 mod config;
@@ -22,7 +22,7 @@ pub fn run(opts: Options) -> Result<()> {
 		info!("Moving {:?} to {:?}", path_src, path_dst);
 		match move_file(&path_src, &path_dst) {
 			Ok(()) => info!("File moved successfully!"),
-			Err(err) => error!("Failed to move file: {}", err),
+			Err(err) => return Err(anyhow!("Failed to move file: {}", err)),
 		};
 	}
 
@@ -41,7 +41,11 @@ pub fn level_filter(opts: &Options) -> LevelFilter {
 
 fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<()> {
 	let from = Path::new(from.as_ref());
-	if from.is_file() {
+	if !from.exists() {
+		Err(anyhow!("{:?} does not exist", from))
+	} else if !from.is_file() {
+		Err(anyhow!("{:?} is not a file", from))
+	} else {
 		match fs::rename(from, &to) {
 			Ok(_) => Ok(()),
 			Err(_) => {
@@ -50,7 +54,5 @@ fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<()> {
 				Ok(())
 			}
 		}
-	} else {
-		Err(anyhow!("'{:?}' does not exist or is not a file", from))
 	}
 }

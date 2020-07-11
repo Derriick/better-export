@@ -1,10 +1,16 @@
 use anyhow::{anyhow, Result};
 use chrono::prelude::*;
 use ini::{ini::EscapePolicy, ini::Properties, Ini};
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use std::path::PathBuf;
 
 use crate::options::Options;
+
+macro_rules! placeholder_date {
+	() => {
+		"{DATE}"
+	};
+}
 
 mod key {
 	pub const PATH_DST: &str = "path";
@@ -13,10 +19,12 @@ mod key {
 }
 
 mod default {
-	pub const PATH_DST: &str = "file{DATE}";
+	pub const PATH_DST: &str = concat!("file", placeholder_date!());
 	pub const PATH_DEFAULT: &str = PATH_DST;
 	pub const FORMAT_DATE: &str = "%Y%m%d_%H%M%S";
 }
+
+const PLACEHOLDER_DATE: &str = placeholder_date!();
 
 pub struct Config<'a> {
 	ini: Ini,
@@ -33,7 +41,10 @@ impl<'a> Config<'a> {
 					ini
 				}
 				None => {
-					warn!("Configuration file {:?} found but has no general section", path_conf);
+					warn!(
+						"Configuration file {:?} found but has no general section",
+						path_conf
+					);
 					ini_from(&opts)
 				}
 			},
@@ -43,13 +54,18 @@ impl<'a> Config<'a> {
 			}
 		};
 
-		if let Err(err) =
-			ini.write_to_file_policy(&path_conf, EscapePolicy::Nothing)
-		{
-			warn!(
-				"Failed to save configuration to file {:?}: {}",
-				path_conf, err
-			);
+		if opts.do_update_conf() {
+			if let Err(err) = ini.write_to_file_policy(&path_conf, EscapePolicy::Nothing) {
+				let err = format!(
+					"Failed to save configuration to file {:?}: {}",
+					path_conf, err
+				);
+				if opts.path_src().is_some() {
+					error!("{}", err);
+				} else {
+					return Err(anyhow!(err));
+				}
+			}
 		}
 
 		Ok(Self { ini, opts })
@@ -68,20 +84,20 @@ impl<'a> Config<'a> {
 			"'{}' not found in general section not found of Ini",
 			key::PATH_DST
 		))?;
-		let format_date = section.get(key::FORMAT_DATE).ok_or(anyhow!(
-			"'{}' not found in general section not found of Ini",
-			key::FORMAT_DATE
-		))?;
-		let mut path_dst = if path_dst.contains("{DATE}") {
+		let mut path_dst = if path_dst.contains(PLACEHOLDER_DATE) {
+			let format_date = section.get(key::FORMAT_DATE).ok_or(anyhow!(
+				"'{}' not found in general section not found of Ini",
+				key::FORMAT_DATE
+			))?;
 			let date = &Local::now().format(format_date).to_string();
-			PathBuf::from(path_dst.replace("{DATE}", &date))
+			PathBuf::from(path_dst.replace(PLACEHOLDER_DATE, &date))
 		} else {
 			PathBuf::from(path_dst)
 		};
 		if path_dst.extension().is_none() {
-			let path_src = self.path_src().ok_or(anyhow!(
-				"Argument for source path not found in command",
-			))?;
+			let path_src = self
+				.path_src()
+				.ok_or(anyhow!("Argument for source path not found in command"))?;
 			if let Some(ext) = path_src.extension() {
 				path_dst.set_extension(ext);
 			}

@@ -1,8 +1,15 @@
+use anyhow::{anyhow, Result};
 use clap::{App, Arg, ArgMatches};
 use std::{
-	env, io,
+	env,
 	path::{Path, PathBuf},
 };
+
+macro_rules! default_path_conf {
+	() => {
+		"config.ini"
+	};
+}
 
 mod key {
 	pub const PATH_SRC: &str = "file";
@@ -12,12 +19,14 @@ mod key {
 	pub const RESET: &str = "reset";
 	pub const PATH_CONF: &str = "config";
 	pub const VERBOSITY: &str = "verbose";
-}
 
-macro_rules! default_path_conf {
-	() => {
-		"config.ini"
-	};
+	pub mod short {
+		pub const PATH_DST: &str = "p";
+		pub const FORMAT_DATE: &str = "d";
+		pub const RESET: &str = "r";
+		pub const PATH_CONF: &str = "c";
+		pub const VERBOSITY: &str = "v";
+	}
 }
 
 mod default {
@@ -36,36 +45,37 @@ impl Options<'_> {
 			     .value_name("FILE")
 			     .help("Path of the file to move."))
 			.arg(Arg::with_name(key::PATH_CONF)
-			     .short("c")
 			     .long(key::PATH_CONF)
+			     .short(key::short::PATH_CONF)
 			     .value_name("FILE")
 			     .help(concat!("Set the path of the configuration file to use. Default is '", default_path_conf!(), "'."))
 			     .takes_value(true))
 			.arg(Arg::with_name(key::PATH_DST)
-			     .short("p")
 			     .long(key::PATH_DST)
+			     .short(key::short::PATH_DST)
 			     .value_name("FILE")
 			     .help("Set the export path. {DATE} will be replaced by the current local date/time with the choosen format.\nIf no extension is specified, the extension of the input file will be used.")
 			     .takes_value(true))
 			.arg(Arg::with_name(key::FORMAT_DATE)
-			     .short("d")
 			     .long(key::FORMAT_DATE)
+			     .short(key::short::FORMAT_DATE)
 			     .value_name("FORMAT")
 			     .help("Set the date format to use in the {DATE} placeholder.")
 			     .takes_value(true))
-			.arg(Arg::with_name("default-path")
-			     .long("default-path")
+			.arg(Arg::with_name(key::PATH_DEFAULT)
+			     .long(key::PATH_DEFAULT)
 			     .value_name("FILE")
 			     .help("Set the default export path.")
 			     .takes_value(true))
 			.arg(Arg::with_name("reset")
-			     .short("r")
-			     .long("reset")
+			     .long(key::RESET)
+			     .short(key::short::RESET)
 			     .help("Reset the export path to the default export path."))
 			.arg(Arg::with_name(key::VERBOSITY)
-			     .short("v")
+			     .long(key::VERBOSITY)
+			     .short(key::short::VERBOSITY)
 			     .multiple(true)
-			     .help("Set the level of verbosity."));
+			     .help("Set the level of verbosity.\nThe number of occurences of this argument inscreases verbosity."));
 		Self(app.get_matches())
 	}
 
@@ -89,34 +99,33 @@ impl Options<'_> {
 		self.0.is_present(key::RESET)
 	}
 
-	pub fn path_conf(&self) -> Result<PathBuf, io::Error> {
-		match self.0.value_of(key::PATH_CONF) {
-			Some(path) => Ok(PathBuf::from(path)),
-			None => {
+	pub fn path_conf(&self) -> Result<PathBuf> {
+		Ok(self
+			.0
+			.value_of(key::PATH_CONF)
+			.map(PathBuf::from)
+			.unwrap_or({
 				let path = Path::new(default::PATH_CONF);
 				if path.is_relative() {
 					let path_exe = env::current_exe()?;
-					let dir = match path_exe.parent() {
-						Some(parent) => parent,
-						None => {
-							return Err(io::Error::new(
-								io::ErrorKind::Other,
-								format!(
-									"current exe file '{}' has no parent",
-									path_exe.to_str().unwrap_or("???")
-								),
-							))
-						}
-					};
-					Ok(dir.join(path))
+					let dir = path_exe
+						.parent()
+						.ok_or(anyhow!("Current exe file {:?} has no parent", path_exe))?;
+					dir.join(path)
 				} else {
-					Ok(path.to_path_buf())
+					path.to_path_buf()
 				}
-			}
-		}
+			}))
 	}
 
 	pub fn verbosity(&self) -> u64 {
 		self.0.occurrences_of(key::VERBOSITY)
+	}
+
+	pub fn do_update_conf(&self) -> bool {
+		self.path_dst().is_some()
+			|| self.path_default().is_some()
+			|| self.format_date().is_some()
+			|| self.reset()
 	}
 }
