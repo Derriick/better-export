@@ -11,7 +11,7 @@ mod key {
 	pub const FORMAT_DATE: &str = "date";
 	pub const RESET: &str = "reset";
 	pub const PATH_CONF: &str = "config";
-	pub const VERBOSE: &str = "verbose";
+	pub const VERBOSITY: &str = "verbose";
 }
 
 macro_rules! default_path_conf {
@@ -62,7 +62,7 @@ impl Options<'_> {
 			     .short("r")
 			     .long("reset")
 			     .help("Reset the export path to the default export path."))
-			.arg(Arg::with_name(key::VERBOSE)
+			.arg(Arg::with_name(key::VERBOSITY)
 			     .short("v")
 			     .multiple(true)
 			     .help("Set the level of verbosity."));
@@ -116,7 +116,7 @@ impl Options<'_> {
 		}
 	}
 
-	pub fn verbose(&self) -> u64 {
-		self.0.occurrences_of(key::VERBOSE)
+	pub fn verbosity(&self) -> u64 {
+		self.0.occurrences_of(key::VERBOSITY)
 	}
 }
