@@ -46,13 +46,10 @@ fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<()> {
 	} else if !from.is_file() {
 		Err(anyhow!("{:?} is not a file", from))
 	} else {
-		match fs::rename(from, &to) {
-			Ok(_) => Ok(()),
-			Err(_) => {
-				fs::copy(from, &to)?;
-				fs::remove_file(from)?;
-				Ok(())
-			}
-		}
+		fs::rename(from, &to).or_else(|_| {
+			fs::copy(from, &to)?;
+			fs::remove_file(from)?;
+			Ok(())
+		})
 	}
 }

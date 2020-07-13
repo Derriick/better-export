@@ -100,22 +100,22 @@ impl Options<'_> {
 	}
 
 	pub fn path_conf(&self) -> Result<PathBuf> {
-		Ok(self
-			.0
+		self.0
 			.value_of(key::PATH_CONF)
 			.map(PathBuf::from)
-			.unwrap_or({
+			.map(Ok)
+			.unwrap_or_else(|| {
 				let path = Path::new(default::PATH_CONF);
 				if path.is_relative() {
 					let path_exe = env::current_exe()?;
 					let dir = path_exe
 						.parent()
-						.ok_or(anyhow!("Current exe file {:?} has no parent", path_exe))?;
-					dir.join(path)
+						.ok_or_else(|| anyhow!("Current exe file {:?} has no parent", path_exe))?;
+					Ok(dir.join(path))
 				} else {
-					path.to_path_buf()
+					Ok(path.to_path_buf())
 				}
-			}))
+			})
 	}
 
 	pub fn verbosity(&self) -> u64 {

@@ -6,11 +6,7 @@ use std::path::PathBuf;
 
 use crate::options::Options;
 
-macro_rules! placeholder_date {
-	() => {
-		"{DATE}"
-	};
-}
+const PLACEHOLDER_DATE: &str = "{DATE}";
 
 mod key {
 	pub const PATH_DST: &str = "path";
@@ -19,12 +15,10 @@ mod key {
 }
 
 mod default {
-	pub const PATH_DST: &str = concat!("file", placeholder_date!());
+	pub const PATH_DST: &str = "file{DATE}";
 	pub const PATH_DEFAULT: &str = PATH_DST;
 	pub const FORMAT_DATE: &str = "%Y%m%d_%H%M%S";
 }
-
-const PLACEHOLDER_DATE: &str = placeholder_date!();
 
 pub struct Config<'a> {
 	ini: Ini,
@@ -79,16 +73,20 @@ impl<'a> Config<'a> {
 		let section = self
 			.ini
 			.section(None::<String>)
-			.ok_or(anyhow!("General section not found in Ini"))?;
-		let path_dst = section.get(key::PATH_DST).ok_or(anyhow!(
-			"'{}' not found in general section not found of Ini",
-			key::PATH_DST
-		))?;
-		let mut path_dst = if path_dst.contains(PLACEHOLDER_DATE) {
-			let format_date = section.get(key::FORMAT_DATE).ok_or(anyhow!(
+			.ok_or_else(|| anyhow!("General section not found in Ini"))?;
+		let path_dst = section.get(key::PATH_DST).ok_or_else(|| {
+			anyhow!(
 				"'{}' not found in general section not found of Ini",
-				key::FORMAT_DATE
-			))?;
+				key::PATH_DST
+			)
+		})?;
+		let mut path_dst = if path_dst.contains(PLACEHOLDER_DATE) {
+			let format_date = section.get(key::FORMAT_DATE).ok_or_else(|| {
+				anyhow!(
+					"'{}' not found in general section not found of Ini",
+					key::FORMAT_DATE
+				)
+			})?;
 			let date = &Local::now().format(format_date).to_string();
 			PathBuf::from(path_dst.replace(PLACEHOLDER_DATE, &date))
 		} else {
@@ -97,7 +95,7 @@ impl<'a> Config<'a> {
 		if path_dst.extension().is_none() {
 			let path_src = self
 				.path_src()
-				.ok_or(anyhow!("Argument for source path not found in command"))?;
+				.ok_or_else(|| anyhow!("Argument for source path not found in command"))?;
 			if let Some(ext) = path_src.extension() {
 				path_dst.set_extension(ext);
 			}
