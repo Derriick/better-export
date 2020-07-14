@@ -114,11 +114,11 @@ fn ini_from(opts: &Options) -> Ini {
 		)
 		.set(
 			key::PATH_DST,
-			opts.path_default().unwrap_or(default::PATH_DST),
+			opts.path_dst().unwrap_or(default::PATH_DST),
 		)
 		.set(
 			key::FORMAT_DATE,
-			opts.path_default().unwrap_or(default::FORMAT_DATE),
+			opts.format_date().unwrap_or(default::FORMAT_DATE),
 		);
 	ini
 }
